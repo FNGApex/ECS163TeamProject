@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Visualizing the World's Tallest Buildings — ECS 163 Team 24</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <h1>The World's Tallest Buildings</h1>
+            <p class="sub">Hover a dot to peek · click to lock the side panel and add it to the comparison chart.</p>
+        </div>
+        <button id="reset" type="button">Reset</button>
+    </header>
+
+    <main id="app">
+        <section class="map-pane">
+            <svg id="map" role="img" aria-label="World map of the tallest buildings"></svg>
+        </section>
+
+        <aside class="info-pane" id="info">
+            <h2 id="info-name">Select a building</h2>
+            <p class="muted" id="info-where">Hover or click any dot on the map.</p>
+            <dl id="info-stats" hidden>
+                <dt>Height</dt><dd id="stat-height">—</dd>
+                <dt>Floors</dt><dd id="stat-floors">—</dd>
+                <dt>Year built</dt><dd id="stat-year">—</dd>
+                <dt>Rank</dt><dd id="stat-rank">—</dd>
+            </dl>
+            <p class="factoid" id="factoid"></p>
+        </aside>
+
+        <section class="compare-pane">
+            <h2>Skyline comparison</h2>
+            <p class="sub">Sorted shortest → tallest. Click dots on the map to add buildings.</p>
+            <svg id="compare" role="img" aria-label="Bar chart comparing the heights of selected buildings"></svg>
+        </section>
+
+        <section class="legend-pane">
+            <h2>Rank</h2>
+            <svg id="legend" role="img" aria-label="Color legend for building rank"></svg>
+            <p class="muted small">Darker = taller (lower rank number).</p>
+        </section>
+    </main>
+
+    <div id="tooltip" class="tooltip" hidden></div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson-client@3"></script>
+    <script src="main.js"></script>
+</body>
+</html>

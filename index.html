@@ -2,24 +2,68 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Visualizing the World's Tallest Buildings — ECS 163 Team 24</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header class="topbar">
-        <div>
+        <div class="title-block">
             <h1>The World's Tallest Buildings</h1>
-            <p class="sub">Hover a dot to peek · click to lock the side panel and add it to the comparison chart.</p>
+            <p class="sub">Explore where the tallest buildings are located, compare their heights, and inspect building details.</p>
         </div>
-        <button id="reset" type="button">Reset</button>
+        <div class="controls" aria-label="Dashboard filters">
+            <label>
+                Search
+                <input id="search" type="search" placeholder="Building, city, country">
+            </label>
+            <label>
+                Country
+                <select id="country-filter">
+                    <option value="All">All countries</option>
+                </select>
+            </label>
+            <label>
+                From
+                <input id="year-min" type="number" inputmode="numeric">
+            </label>
+            <label>
+                To
+                <input id="year-max" type="number" inputmode="numeric">
+            </label>
+            <button id="reset" type="button">Reset</button>
+        </div>
     </header>
 
+    <section class="summary-row" aria-label="Dataset summary">
+        <article class="summary-card">
+            <span class="label">Visible buildings</span>
+            <strong id="summary-count">—</strong>
+        </article>
+        <article class="summary-card">
+            <span class="label">Countries</span>
+            <strong id="summary-countries">—</strong>
+        </article>
+        <article class="summary-card">
+            <span class="label">Tallest visible</span>
+            <strong id="summary-tallest">—</strong>
+        </article>
+        <article class="summary-card">
+            <span class="label">Year range</span>
+            <strong id="summary-years">—</strong>
+        </article>
+    </section>
+
     <main id="app">
-        <section class="map-pane">
+        <section class="map-pane panel">
+            <div class="panel-head">
+                <h2>Global overview</h2>
+                <p class="sub">Hover a dot to preview · click to select · scroll to zoom the map.</p>
+            </div>
             <svg id="map" role="img" aria-label="World map of the tallest buildings"></svg>
         </section>
 
-        <aside class="info-pane" id="info">
+        <aside class="info-pane panel" id="info">
             <h2 id="info-name">Select a building</h2>
             <p class="muted" id="info-where">Hover or click any dot on the map.</p>
             <dl id="info-stats" hidden>
@@ -31,16 +75,34 @@
             <p class="factoid" id="factoid"></p>
         </aside>
 
-        <section class="compare-pane">
-            <h2>Skyline comparison</h2>
-            <p class="sub">Sorted shortest → tallest. Click dots on the map to add buildings.</p>
+        <section class="compare-pane panel">
+            <div class="panel-head">
+                <h2>Skyline comparison</h2>
+                <p class="sub">Click dots on the map to add buildings. Sorted shortest → tallest.</p>
+            </div>
             <svg id="compare" role="img" aria-label="Bar chart comparing the heights of selected buildings"></svg>
         </section>
 
-        <section class="legend-pane">
-            <h2>Rank</h2>
+        <section class="country-pane panel">
+            <div class="panel-head">
+                <h2>Country summary</h2>
+                <p class="sub">Top countries in the current view.</p>
+            </div>
+            <svg id="country-chart" role="img" aria-label="Bar chart showing building counts by country"></svg>
+        </section>
+
+        <section class="timeline-pane panel">
+            <div class="panel-head">
+                <h2>Construction timeline</h2>
+                <p class="sub">Built year distribution for the current filtered view.</p>
+            </div>
+            <svg id="timeline" role="img" aria-label="Timeline showing buildings by construction year"></svg>
+        </section>
+
+        <section class="legend-pane panel">
+            <h2>Rank color</h2>
             <svg id="legend" role="img" aria-label="Color legend for building rank"></svg>
-            <p class="muted small">Darker = taller (lower rank number).</p>
+            <p class="muted small">Darker red means a smaller rank number, so it is closer to #1.</p>
         </section>
     </main>
 

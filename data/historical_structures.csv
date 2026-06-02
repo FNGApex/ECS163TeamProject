@@ -1,0 +1,25 @@
+name,height_m,year_start,year_end,years_held,type,country,city
+Göbekli Tepe,5.0,-10000,-8000,2000.0,Temple,Turkey,Anatolia
+Tower of Jericho,8.5,-8000,-4000,4000.0,Monument,Israel,Jericho
+Anu Ziggarat,13.0,-4000,-2650,1350.0,Temple,Iraq,Uruk
+Pyramid of Djoser,62.5,-2650,-2610,40.0,Mausoleum,Egypt,Saqqara
+Meidum pyramid,91.65,-2610,-2605,5.0,Mausoleum,Egypt,Meidum
+Bent Pyramid,104.71,-2605,-2600,5.0,Mausoleum,Egypt,Dashur
+Red Pyramid,105.0,-2600,-2570,30.0,Mausloeum,Egypt,Dashur
+Great Pyramid of Giza,146.5,-2560,1311,3881.0,Mausoleum,Egypt,Giza
+Lincoln Cathedral,160.0,1311,1549,238.0,Church,England,Lincoln
+St. Mary's Church,151.0,1549,1569,20.0,Church,Germany,Stralsund
+Beauvais Cathedral,153.0,1569,1573,4.0,Church,France,Beauvais
+St. Mary's Church,151.0,1573,1647,74.0,Church,Germany,Stralsund
+Strasbourg Cathedral,142.0,1647,1874,227.0,Church,"Germany (1647, 1871-1874) and/or France (1648-1870, 1918-today)",Strasbourg
+St Nikolai,147.3,1874,1876,2.0,Church,Germany,Hamburg
+Rouen Cathedral,151.0,1876,1880,4.0,Church,France,Rouen
+Cologne Cathedral,157.4,1880,1884,4.0,Church,Germany,Cologne
+Washington Monument,169.3,1884,1889,5.0,Monument,United States,"Washington, D.C."
+Eiffel Tower,300.0,1889,1930,41.0,Tower,France,Paris
+Chrysler Building,318.9,1930,1931,1.0,Skyscraper,United States,New York City
+Empire State Building,381.0,1931,2025,36.0,Skyscraper,United States,New York City
+Empire State Building with new antenna,448.7,1950,2025,,,,
+Ostankino Tower,540.0,1967,1975,8.0,Tower,Soviet Union,Moscow
+CN Tower,553.0,1975,2007,32.0,Tower,Canada,Toronto
+Burj Khalifa,829.8,2009,2025,,Skyscraper,United Arab Emirates,Dubai

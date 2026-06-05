@@ -94,6 +94,7 @@ Promise.all([
 ]).then(([buildings, world]) => {
   state.allData = buildings.filter(d => Number.isFinite(d.height)).sort((a, b) => d3.ascending(a.rank, b.rank));
   state.world = topojson.feature(world, world.objects.countries);
+  state.selected = state.allData[0] || null;
   initializeControls();
   applyFilters();
   window.addEventListener("resize", debounce(() => renderAll(), 180));
@@ -165,7 +166,7 @@ function initializeControls() {
     state.sort = "height-desc";
     state.topN = 18;
     state.yearRange = null;
-    state.selected = null;
+    state.selected = state.allData[0] || null;
     state.compareTarget = null;
     state.mapTransform = d3.zoomIdentity;
     d3.select("#country-select").property("value", "all");
@@ -197,10 +198,8 @@ function applyFilters() {
       state.displayedData.push(item);
     }
   }
+  state.displayedData = sortData(state.displayedData, state.sort);
 
-  if (!state.selected && state.displayedData.length) {
-    state.selected = state.displayedData[0];
-  }
   if (state.selected && state.compareTarget && state.selected.id === state.compareTarget.id) {
     state.compareTarget = null;
   }

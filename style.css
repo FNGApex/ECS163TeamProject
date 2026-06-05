@@ -1144,3 +1144,343 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===========================================================================
+ * Dashboard reveal (after intro)
+ * ======================================================================== */
+.page-shell {
+  transition: opacity 0.85s ease, transform 0.85s ease;
+}
+.page-shell.pre-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.page-shell.revealed {
+  opacity: 1;
+  transform: none;
+}
+body.intro-active {
+  overflow: hidden;
+}
+
+/* ===========================================================================
+ * Intro overlay
+ * ======================================================================== */
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 59, 59, 0.28), transparent 32rem),
+    radial-gradient(circle at bottom right, rgba(255, 111, 0, 0.20), transparent 34rem),
+    linear-gradient(135deg, #050202 0%, #160405 48%, #070101 100%);
+  opacity: 1;
+  transition: opacity 0.7s ease;
+}
+.intro-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.intro-inner {
+  width: min(1180px, 100%);
+  height: min(92vh, 880px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(180deg, rgba(33, 9, 11, 0.78), rgba(20, 6, 7, 0.78));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 26px 20px;
+}
+
+.intro-head h1 {
+  font-size: clamp(26px, 3.6vw, 46px);
+  letter-spacing: -0.05em;
+  line-height: 1.0;
+  margin-bottom: 6px;
+}
+.intro-sub {
+  margin: 0;
+  color: var(--muted);
+  max-width: 70ch;
+  font-size: 14px;
+}
+
+.intro-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+#intro-map {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.intro-country {
+  fill: rgba(255, 178, 74, 0.06);
+  stroke: rgba(255, 72, 72, 0.22);
+  stroke-width: 0.6px;
+}
+.intro-trail-dot {
+  fill: var(--accent-2);
+}
+.intro-marker {
+  fill: var(--accent);
+  stroke: #fff;
+  stroke-width: 2px;
+}
+.intro-pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2px;
+  opacity: 0.85;
+}
+.intro-bloom-dot {
+  stroke: rgba(255, 255, 255, 0.65);
+  stroke-width: 0.7px;
+  opacity: 0.92;
+}
+
+/* Caption card floats over the map */
+.intro-caption {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: min(330px, 46%);
+  background: rgba(8, 3, 3, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translateY(8px);
+}
+.intro-caption.pop {
+  animation: introCapIn 0.45s ease forwards;
+}
+@keyframes introCapIn {
+  to { opacity: 1; transform: none; }
+}
+.intro-cap-era {
+  color: var(--accent-2);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.intro-cap-name {
+  margin: 0 0 4px;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.intro-cap-loc {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.intro-cap-height {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.intro-cap-bar {
+  margin: 8px 0 8px;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.intro-cap-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.6s ease;
+}
+.intro-cap-held {
+  font-size: 12px;
+  color: var(--muted);
+}
+.intro-cap-modern {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+/* Timeline */
+#intro-timeline {
+  width: 100%;
+  height: 96px;
+  display: block;
+  flex: 0 0 auto;
+}
+.intro-tl-base {
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 2px;
+}
+.intro-tl-tick {
+  stroke: rgba(255, 178, 74, 0.55);
+  stroke-width: 1.4px;
+}
+.intro-tl-eratick {
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 1px;
+}
+.intro-tl-eralabel {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.intro-playhead line {
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+.intro-playhead circle.intro-handle {
+  fill: var(--accent);
+  stroke: #fff;
+  stroke-width: 2px;
+  cursor: grab;
+}
+.intro-playhead.dragging circle.intro-handle {
+  cursor: grabbing;
+}
+.intro-tl-hit {
+  cursor: ew-resize;
+}
+.intro-year-readout {
+  fill: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.intro-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+.intro-controls-left,
+.intro-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.intro-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 720px) {
+  .intro-hint { display: none; }
+}
+.intro-btn {
+  border-radius: 12px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  transition: transform 0.15s ease, background 0.2s ease, opacity 0.2s ease;
+}
+.intro-btn.ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.intro-btn.ghost:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.intro-btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #1b0606;
+  border: none;
+}
+.intro-btn.primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.intro-btn.primary.ready:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .intro-caption {
+    position: static;
+    width: auto;
+    margin-top: 10px;
+  }
+  .intro-stage {
+    display: flex;
+    flex-direction: column;
+  }
+  #intro-map { height: 46vh; }
+}
+
+/* ===========================================================================
+ * Two-building comparison — country context section
+ * ======================================================================== */
+.pair-context {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.pair-context-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.pair-context-head strong {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.pair-context-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.pair-context-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ctx-key {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+.ctx-key-a { color: #ffd9a3; }
+.ctx-key-b { color: #ffb3b3; }
+.pair-context-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.ctx-approx {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--accent-2);
+  margin-left: 4px;
+}
+.ctx-missing {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 4px;
+}

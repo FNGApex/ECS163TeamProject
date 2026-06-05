@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 </head>
 <body>
-  <main class="page-shell">
+  <main class="page-shell pre-reveal">
     <section class="hero">
       <div>
         <p class="eyebrow">ECS 163 Final Project</p>
@@ -131,6 +131,31 @@
       </p>
     </section>
   </main>
+
+  <div id="intro-overlay" class="intro-overlay">
+    <div class="intro-inner">
+      <div class="intro-head">
+        <p class="eyebrow">The race to the sky</p>
+        <h1>The World's Tallest Structure Through Time</h1>
+        <p class="intro-sub">From an ancient temple to a modern megatower, see how the title of "The World's Tallest Building" traveled throughout time and across the world.</p>
+      </div>
+      <div class="intro-stage">
+        <svg id="intro-map"></svg>
+        <div id="intro-caption" class="intro-caption"></div>
+      </div>
+      <svg id="intro-timeline"></svg>
+      <div class="intro-controls">
+        <div class="intro-controls-left">
+          <button id="intro-playpause" type="button" class="intro-btn ghost">&#10073;&#10073; Pause</button>
+          <span class="intro-hint">Drag the timeline handle to scrub through history</span>
+        </div>
+        <div class="intro-controls-right">
+          <button id="intro-skip" type="button" class="intro-btn ghost">Skip intro</button>
+          <button id="intro-enter" type="button" class="intro-btn primary" disabled>Enter dashboard</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="tooltip" class="tooltip"></div>
   <script src="main.js"></script>

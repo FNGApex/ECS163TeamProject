@@ -10,6 +10,7 @@ const state = {
   topN: 18,
   yearRange: null,
   world: null,
+  recordTimeline: [],
   mapTransform: d3.zoomIdentity
 };
 
@@ -25,6 +26,126 @@ const rankColor = d3.scaleSequential()
 
 const formatNumber = d3.format(",");
 const keySafe = value => String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/* 
+Datasets for country context are set up with different formatting
+This is here to make sure the datasets can be joined properly
+ */
+const GDP_ALIAS = {
+  "South Korea": "Korea, Rep.",
+  "Russia": "Russian Federation",
+  "Vietnam": "Viet Nam",
+  "Egypt": "Egypt, Arab Rep.",
+  "England": "United Kingdom",
+  "Turkey": "Turkiye"
+};
+const ENERGY_POP_ALIAS = {
+  "United States": "USA",
+  "United Arab Emirates": "UAE",
+  "England": "UK"
+};
+
+//Sort through country context data
+const contextData = { gdp: new Map(), energy: new Map(), population: new Map() };
+
+function addContextRows(map, rows, countryKey, valueKey) {
+  for (const row of rows) {
+    const country = (row[countryKey] || "").trim();
+    const year = cleanNumber(row.year);
+    const value = cleanNumber(row[valueKey]);
+    if (!country || !Number.isFinite(year) || !Number.isFinite(value)) continue;
+    if (!map.has(country)) map.set(country, []);
+    map.get(country).push({ year, value });
+  }
+  for (const arr of map.values()) arr.sort((a, b) => a.year - b.year);
+}
+
+//Energy production dataset only tracks until 2009, so we have to track the closest year for buildings built after 2009
+function nearestByYear(arr, year) {
+  if (!arr || !arr.length) return null;
+  let best = arr[0];
+  for (const point of arr) {
+    if (Math.abs(point.year - year) < Math.abs(best.year - year)) best = point;
+  }
+  return best;
+}
+
+//Returns { value, year, exact } for a building's country at (or near) its build
+//year, or null when that country is missing from the source dataset.
+function lookupContext(metric, country, year) {
+  const alias = metric === "gdp" ? GDP_ALIAS : ENERGY_POP_ALIAS;
+  const canonical = alias[country] || country;
+  const hit = nearestByYear(contextData[metric].get(canonical), year);
+  if (!hit) return null;
+  return { value: hit.value, year: hit.year, exact: hit.year === year };
+}
+
+function formatUSD(value) {
+  if (!Number.isFinite(value)) return "—";
+  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(0)}M`;
+  return `$${formatNumber(Math.round(value))}`;
+}
+
+function formatPeople(value) {
+  if (!Number.isFinite(value)) return "—";
+  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(0)}K`;
+  return formatNumber(Math.round(value));
+}
+
+//Change unit from kilotons of oil equivalent to millions of tons of oil equivalent
+function formatEnergy(value) {
+  if (!Number.isFinite(value)) return "-";
+  const mtoe = value / 1000;
+  if (mtoe >= 1000) return `${formatNumber(Math.round(mtoe))} Mtoe`;
+  if (mtoe >= 1) return `${mtoe.toFixed(1)} Mtoe`;
+  return `${formatNumber(Math.round(value))} ktoe`;
+}
+
+//Setting up scale for timeline dates
+function formatEraYear(year) {
+  if (!Number.isFinite(year)) return "-";
+  if (year < 0) return `${formatNumber(Math.abs(year))} BCE`;
+  if (year < 1000) return `${year} CE`;
+  return `${year}`;
+}
+
+function normalizeHistorical(row) {
+  const height = cleanNumber(row.height_m);
+  const year = cleanNumber(row.year_start);
+  const yearEnd = cleanNumber(row.year_end);
+  const held = cleanNumber(row.years_held);
+  const lat = cleanNumber(row.lat);
+  const lon = cleanNumber(row.lon);
+  return {
+    name: row.name || "Unknown structure",
+    height,
+    year,
+    yearEnd: Number.isFinite(yearEnd) ? yearEnd : null,
+    yearsHeld: Number.isFinite(held) ? held : null,
+    type: row.type || "Structure",
+    country: row.country || "",
+    city: row.city || "",
+    lat,
+    lon,
+    hasLocation: Number.isFinite(lat) && Number.isFinite(lon)
+  };
+}
+
+//Combining the historical dataset with 78 tallest dataset.
+function buildRecordTimeline(historical, buildings) {
+  const buildingByName = new Map(buildings.map(b => [String(b.name).toLowerCase(), b]));
+  return historical
+    .filter(h => Number.isFinite(h.height) && Number.isFinite(h.year) && h.hasLocation)
+    .sort((a, b) => a.year - b.year)
+    .map(h => {
+      const match = buildingByName.get(String(h.name).toLowerCase());
+      return { ...h, modernRank: match ? match.rank : null };
+    });
+}
 
 function firstDefined(row, names) {
   for (const name of names) {
@@ -90,19 +211,38 @@ function normalizeRow(row, index) {
 
 Promise.all([
   d3.csv("data/buildings.csv", normalizeRow),
-  d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
-]).then(([buildings, world]) => {
+  d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
+  d3.csv("data/historical_structures.csv", normalizeHistorical),
+  d3.csv("data/gdp.csv"),
+  d3.csv("data/energy_production.csv"),
+  d3.csv("data/population.csv")
+]).then(([buildings, world, historical, gdpRows, energyRows, populationRows]) => {
   state.allData = buildings.filter(d => Number.isFinite(d.height)).sort((a, b) => d3.ascending(a.rank, b.rank));
   state.world = topojson.feature(world, world.objects.countries);
   state.selected = state.allData[0] || null;
+
+  //formatting for faster country + year lookups
+  addContextRows(contextData.gdp, gdpRows, "country", "gdp_usd");
+  addContextRows(contextData.energy, energyRows, "country", "energy_production");
+  addContextRows(contextData.population, populationRows, "country", "population");
+
+  //building the timeline
+  state.recordTimeline = buildRecordTimeline(historical, state.allData);
+
+  //Initialize dashboard after timeline animation
   initializeControls();
   applyFilters();
   window.addEventListener("resize", debounce(() => renderAll(), 180));
+
+  startIntro();
 }).catch(error => {
   console.error(error);
+  d3.select(".page-shell").classed("pre-reveal", false);
+  d3.select("#intro-overlay").remove();
+  document.body.classList.remove("intro-active");
   d3.select(".page-shell").append("div")
     .attr("class", "story-card")
-    .html(`<h2>Data loading problem</h2><p>Make sure your file path is <strong>data/buildings.csv</strong> and that you are running the project through a local server such as VS Code Live Server.</p>`);
+    .html(`<h2>Data loading problem</h2><p>Make sure the files in <strong>data/</strong> (buildings.csv, historical_structures.csv, gdp.csv, energy_production.csv, population.csv) are present and that you are running the project through a local server such as VS Code Live Server.</p>`);
 });
 
 function initializeControls() {
@@ -636,6 +776,7 @@ function renderTimeline() {
   const brush = d3.brushX()
     .extent([[margin.left, margin.top], [margin.left + innerWidth, margin.top + innerHeight]])
     .on("end", event => {
+      //Bug fix from Claude - Anthropic
       // Ignore programmatic moves (brush.move below) — only react to real user gestures.
       // Without this guard, restoring the selection re-fires "end" and recurses until the tab crashes.
       if (!event.sourceEvent) return;
@@ -728,6 +869,58 @@ function pairComparisonMarkup(a, b) {
       <div><span>${yearDiff === null ? "—" : `${Math.abs(yearDiff)} yrs`}</span><small>Year difference</small></div>
       <div><span>${Math.abs(rankDiff)}</span><small>Rank difference</small></div>
       <div><span>${taller.name === a.name ? "A" : "B"}</span><small>Taller building</small></div>
+    </div>
+
+    ${pairContextSection(a, b)}
+  `;
+}
+
+//in country comparison tool, we need to build demographic and economic comparisons.
+function pairContextSection(a, b) {
+  const metrics = [
+    { label: "GDP (national)", metric: "gdp", format: formatUSD },
+    { label: "Energy production", metric: "energy", format: formatEnergy },
+    { label: "Population", metric: "population", format: formatPeople }
+  ];
+
+  const rows = metrics.map(m => pairContextMetric(m.label, a, b, m.metric, m.format)).join("");
+
+  return `
+    <div class="pair-context">
+      <div class="pair-context-head">
+        <strong>Country context at completion</strong>
+        <span>National figures for each building's country in its build year</span>
+      </div>
+      <div class="pair-context-key">
+        <span class="ctx-key ctx-key-a">A · ${[a.city, a.country].filter(Boolean).join(", ")} · ${formatEraYear(a.year)}</span>
+        <span class="ctx-key ctx-key-b">B · ${[b.city, b.country].filter(Boolean).join(", ")} · ${formatEraYear(b.year)}</span>
+      </div>
+      <div class="pair-bars pair-context-bars">
+        ${rows}
+      </div>
+      <p class="pair-context-note">Sources: World Bank (GDP), Gapminder (energy production, population). “~year” marks the nearest available year; energy data ends ≈2009, so most modern towers use that fallback.</p>
+    </div>
+  `;
+}
+
+function pairContextMetric(label, a, b, metric, format) {
+  const ca = lookupContext(metric, a.country, a.year);
+  const cb = lookupContext(metric, b.country, b.year);
+  const av = ca ? ca.value : NaN;
+  const bv = cb ? cb.value : NaN;
+  const max = Math.max(Number.isFinite(av) ? av : 0, Number.isFinite(bv) ? bv : 0) || 1;
+  const aw = Number.isFinite(av) ? Math.max(4, (av / max) * 100) : 0;
+  const bw = Number.isFinite(bv) ? Math.max(4, (bv / max) * 100) : 0;
+
+  const tag = ctx => !ctx ? `<em class="ctx-missing">no data</em>` : (ctx.exact ? "" : `<em class="ctx-approx">~${ctx.year}</em>`);
+  const displayA = ca ? `${format(av)} ${tag(ca)}` : `— ${tag(ca)}`;
+  const displayB = cb ? `${format(bv)} ${tag(cb)}` : `— ${tag(cb)}`;
+
+  return `
+    <div class="pair-metric">
+      <div class="pair-metric-title">${label}</div>
+      <div class="pair-metric-line"><span>A</span><div class="pair-track"><div class="pair-fill a" style="width:${aw.toFixed(1)}%"></div></div><strong>${displayA}</strong></div>
+      <div class="pair-metric-line"><span>B</span><div class="pair-track"><div class="pair-fill b" style="width:${bw.toFixed(1)}%"></div></div><strong>${displayB}</strong></div>
     </div>
   `;
 }
@@ -1017,4 +1210,358 @@ function debounce(fn, wait) {
     clearTimeout(timeout);
     timeout = setTimeout(() => fn(...args), wait);
   };
+}
+
+/* 
+==========================================================================
+Set up for Intro Animation
+==========================================================================
+*/
+function startIntro() {
+  const overlay = document.querySelector("#intro-overlay");
+  const records = state.recordTimeline || [];
+
+  //if the overlay markup or data is missing, just show the dashboard.
+  if (!overlay || !records.length || !state.world) {
+    revealDashboard();
+    return;
+  }
+
+  document.body.classList.add("intro-active");
+
+  const introMap = d3.select("#intro-map");
+  const introTimeline = d3.select("#intro-timeline");
+  const caption = d3.select("#intro-caption");
+
+  //create same map as dashboard
+  const mapRect = introMap.node().getBoundingClientRect();
+  const mapW = Math.max(360, mapRect.width);
+  const mapH = Math.max(260, mapRect.height);
+  introMap.attr("viewBox", [0, 0, mapW, mapH]);
+  introMap.selectAll("*").remove();
+
+  const projection = d3.geoNaturalEarth1()
+    .fitExtent([[14, 14], [mapW - 14, mapH - 14]], state.world);
+  const path = d3.geoPath(projection);
+
+  introMap.append("g").selectAll("path.intro-country")
+    .data(state.world.features)
+    .join("path")
+    .attr("class", "intro-country")
+    .attr("d", path);
+
+  const trailLayer = introMap.append("g").attr("class", "intro-trail-layer");
+  const markerLayer = introMap.append("g").attr("class", "intro-marker-layer");
+  const bloomLayer = introMap.append("g").attr("class", "intro-bloom-layer");
+
+  //Log scale timeline
+  const tlRect = introTimeline.node().getBoundingClientRect();
+  const tlW = Math.max(360, tlRect.width);
+  const tlH = Math.max(90, tlRect.height);
+  const tlPad = { left: 26, right: 26, axis: 52 };
+  const x0 = tlPad.left;
+  const x1 = tlW - tlPad.right;
+  introTimeline.attr("viewBox", [0, 0, tlW, tlH]);
+  introTimeline.selectAll("*").remove();
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  //Anchor at a BASE point in time and create log scale around that
+  const recYears = records.map(r => r.year);
+  const minYear = d3.min(recYears);
+  const BASE = 2035;
+  const agoOf = y => Math.max(1, BASE - y);
+  const xLog = d3.scaleLog()
+    .domain([agoOf(minYear), agoOf(2025)])
+    .range([x0, x1]);
+  const xYear = y => xLog(agoOf(y));
+  const yearAtX = px => BASE - xLog.invert(px);
+
+  const axisY = tlH - tlPad.axis;
+
+  introTimeline.append("line")
+    .attr("class", "intro-tl-base")
+    .attr("x1", x0).attr("x2", x1)
+    .attr("y1", axisY).attr("y2", axisY);
+
+  // Era reference labels at their true (log) positions.
+  [-10000, -2000, 0, 1500, 1900, 1970, 2025].forEach(y => {
+    const x = xYear(y);
+    if (x < x0 - 1 || x > x1 + 1) return;
+    introTimeline.append("line")
+      .attr("class", "intro-tl-eratick")
+      .attr("x1", x).attr("x2", x)
+      .attr("y1", axisY - 5).attr("y2", axisY + 5);
+    introTimeline.append("text")
+      .attr("class", "intro-tl-eralabel")
+      .attr("x", x).attr("y", axisY + 20)
+      .attr("text-anchor", "middle")
+      .text(formatEraYear(y));
+  });
+
+  // One tick per record.
+  introTimeline.append("g").selectAll("line.intro-tl-tick")
+    .data(records)
+    .join("line")
+    .attr("class", "intro-tl-tick")
+    .attr("x1", d => xYear(d.year)).attr("x2", d => xYear(d.year))
+    .attr("y1", axisY - 9).attr("y2", axisY);
+
+  const playhead = introTimeline.append("g").attr("class", "intro-playhead").style("opacity", 0);
+  playhead.append("line").attr("y1", 12).attr("y2", axisY);
+  playhead.append("circle").attr("class", "intro-handle").attr("cy", 12).attr("r", 7);
+  const yearReadout = introTimeline.append("text")
+    .attr("class", "intro-year-readout")
+    .attr("y", 22)
+    .attr("text-anchor", "middle");
+
+  // Transparent band that captures drag / click for manual scrubbing.
+  const hit = introTimeline.append("rect")
+    .attr("class", "intro-tl-hit")
+    .attr("x", x0).attr("y", 4)
+    .attr("width", x1 - x0).attr("height", (axisY + 14) - 4)
+    .attr("fill", "transparent");
+
+  //Playback animation for timeline
+  //Hold for a set amount of time on each record so its readable.
+  const recX = records.map(r => xYear(r.year));
+  const lastIndex = records.length - 1;
+  const HOLD = 600;                          // ms parked on each record
+  const TRAVEL_TOTAL = 8000;                 // target ms to traverse the full width
+  const spanPx = Math.max(1, x1 - x0);
+  const PX_PER_MS = spanPx / TRAVEL_TOTAL;
+  const MIN_TRAVEL = 90;
+  const MAX_TRAVEL = 1500;
+
+  const segments = [];
+  const holdStartByIndex = new Array(records.length).fill(0);
+  let cursor = 0;
+  for (let i = 0; i < records.length; i++) {
+    holdStartByIndex[i] = cursor;
+    segments.push({ type: "hold", i, start: cursor, end: cursor + HOLD });
+    cursor += HOLD;
+    if (i < lastIndex) {
+      const dist = Math.abs(recX[i + 1] - recX[i]);
+      const dur = clamp(dist / PX_PER_MS, MIN_TRAVEL, MAX_TRAVEL);
+      segments.push({ type: "travel", from: i, to: i + 1, start: cursor, end: cursor + dur });
+      cursor += dur;
+    }
+  }
+  const totalDuration = cursor;
+
+  function segAt(ms) {
+    for (const s of segments) if (ms < s.end) return s;
+    return segments[segments.length - 1];
+  }
+
+  // ---- Sequencing & interaction -------------------------------------------
+  const maxHeight = d3.max(records, r => r.height) || 1;
+  let currentActive = -1;
+  let scheduleElapsed = 0;
+  let prevTick = 0;
+  let clock = null;
+  let playing = false;
+  let finished = false;
+  let entered = false;
+  let scrubbing = false;
+
+  function setHandle(px, year) {
+    playhead.style("opacity", 1).attr("transform", `translate(${px},0)`);
+    yearReadout.attr("x", clamp(px, x0 + 14, x1 - 14)).text(formatEraYear(Math.round(year)));
+  }
+
+  // Caption + map marker for a record. The handle is owned by the scheduler/scrubber,
+  // so this no longer moves the playhead.
+  function showBeat(rec) {
+    const [mx, my] = projection([rec.lon, rec.lat]);
+
+    trailLayer.append("circle")
+      .attr("class", "intro-trail-dot")
+      .attr("cx", mx).attr("cy", my).attr("r", 3)
+      .style("opacity", 0)
+      .transition().duration(380).style("opacity", 0.5);
+
+    markerLayer.selectAll("*").remove();
+    const g = markerLayer.append("g").attr("transform", `translate(${mx},${my})`);
+    g.append("circle").attr("class", "intro-pulse").attr("r", 6)
+      .transition().duration(1000).ease(d3.easeCubicOut)
+      .attr("r", 24).style("opacity", 0);
+    g.append("circle").attr("class", "intro-marker").attr("r", 0)
+      .transition().duration(380).ease(d3.easeBackOut).attr("r", 8);
+
+    const heldText = rec.yearsHeld ? `Held the title for ~${formatNumber(Math.round(rec.yearsHeld))} years` : "Current record holder";
+    const modernText = rec.modernRank ? `<span class="intro-cap-modern">#${rec.modernRank} in today's tallest-buildings dataset</span>` : "";
+    caption.html(`
+      <div class="intro-cap-era">${formatEraYear(rec.year)} · ${rec.type}</div>
+      <h2 class="intro-cap-name">${rec.name}</h2>
+      <div class="intro-cap-loc">${[rec.city, rec.country].filter(Boolean).join(", ")}</div>
+      <div class="intro-cap-height">${formatNumber(rec.height)} m</div>
+      <div class="intro-cap-bar"><div class="intro-cap-fill" style="width:${Math.max(4, (rec.height / maxHeight) * 100).toFixed(1)}%"></div></div>
+      <div class="intro-cap-held">${heldText}</div>
+      ${modernText}
+    `);
+    caption.classed("pop", false);
+    void caption.node().offsetWidth;
+    caption.classed("pop", true);
+  }
+
+  function activate(index) {
+    if (index === currentActive) return;
+    currentActive = index;
+    if (index >= lastIndex && !finished) {
+      finishSequence();
+    } else if (!finished || index < lastIndex) {
+      showBeat(records[index]);
+    }
+  }
+
+  function applySchedule(ms) {
+    const seg = segAt(ms);
+    if (seg.type === "hold") {
+      setHandle(recX[seg.i], records[seg.i].year);
+      activate(seg.i);
+    } else {
+      const f = clamp((ms - seg.start) / (seg.end - seg.start), 0, 1);
+      const e = d3.easeCubicInOut(f);
+      const px = recX[seg.from] + (recX[seg.to] - recX[seg.from]) * e;
+      setHandle(px, yearAtX(px));
+      activate(seg.from);
+    }
+  }
+
+  function tick(t) {
+    if (finished) { stopClock(); return; }
+    const delta = t - prevTick;
+    prevTick = t;
+    scheduleElapsed = Math.min(totalDuration, scheduleElapsed + delta);
+    applySchedule(scheduleElapsed);
+    if (scheduleElapsed >= totalDuration) stopClock();
+  }
+
+  function startClock() {
+    if (playing || finished) return;
+    playing = true;
+    prevTick = 0;
+    clock = d3.timer(tick);
+    updatePlayPauseUI();
+  }
+
+  function stopClock() {
+    playing = false;
+    if (clock) { clock.stop(); clock = null; }
+    updatePlayPauseUI();
+  }
+
+  function updatePlayPauseUI() {
+    const btn = d3.select("#intro-playpause");
+    if (btn.empty()) return;
+    if (finished) { btn.style("display", "none"); return; }
+    btn.html(playing ? "&#10073;&#10073; Pause" : "&#9658; Play");
+  }
+
+  // Which record was the title-holder at a given year (last record not after it).
+  function holderIndexForYear(year) {
+    let idx = 0;
+    for (let i = 0; i < records.length; i++) {
+      if (records[i].year <= year) idx = i; else break;
+    }
+    return idx;
+  }
+
+  function seekToX(px) {
+    const clampedPx = clamp(px, x0, x1);
+    const year = Math.round(yearAtX(clampedPx));
+    setHandle(clampedPx, year);
+    const idx = holderIndexForYear(year);
+    scheduleElapsed = holdStartByIndex[idx];   // so Play resumes coherently
+    activate(idx);
+  }
+
+  const drag = d3.drag()
+    .container(() => introTimeline.node())
+    .on("start", event => {
+      stopClock();
+      scrubbing = true;
+      playhead.classed("dragging", true);
+      seekToX(event.x);
+    })
+    .on("drag", event => seekToX(event.x))
+    .on("end", () => {
+      scrubbing = false;
+      playhead.classed("dragging", false);
+      updatePlayPauseUI();
+    });
+  hit.call(drag);
+  playhead.call(drag);
+
+  // Finale: scatter all 78 modern towers across the map and invite the user in.
+  function finishSequence() {
+    finished = true;
+    stopClock();
+    markerLayer.selectAll(".intro-pulse").interrupt();
+    setHandle(x1, 2025);
+
+    const towers = state.allData.filter(d => d.hasLocation);
+    bloomLayer.selectAll("circle.intro-bloom-dot")
+      .data(towers)
+      .join("circle")
+      .attr("class", "intro-bloom-dot")
+      .attr("cx", d => projection([d.lon, d.lat])[0])
+      .attr("cy", d => projection([d.lon, d.lat])[1])
+      .attr("r", 0)
+      .attr("fill", d => rankColor(d.rank))
+      .transition()
+      .delay((d, i) => i * 16)
+      .duration(420)
+      .ease(d3.easeBackOut)
+      .attr("r", 4.2);
+
+    caption.html(`
+      <div class="intro-cap-era">Today</div>
+      <h2 class="intro-cap-name">Tallest Building of an era to an Era of Tallest Buildings</h2>
+      <div class="intro-cap-loc">Burj Khalifa still holds the title of "Tallest building" and it now leads a field of
+        <strong>${state.allData.length} of history's tallest towers</strong>.</div>
+      <div class="intro-cap-held">Step inside to explore where they stand, compare their forms, and see the world that built them.</div>
+    `);
+    caption.classed("pop", false);
+    void caption.node().offsetWidth;
+    caption.classed("pop", true);
+
+    d3.select("#intro-enter").property("disabled", false).classed("ready", true);
+    d3.select("#intro-skip").text("Skip to dashboard");
+    updatePlayPauseUI();
+  }
+
+  function enterDashboard() {
+    if (entered) return;
+    entered = true;
+    stopClock();
+    markerLayer.selectAll("*").interrupt();
+
+    d3.select("#intro-overlay").classed("hidden", true);
+    revealDashboard();
+    setTimeout(() => {
+      const node = document.querySelector("#intro-overlay");
+      if (node) node.remove();
+      // Re-render so cross-view connection lines align now that the dashboard is
+      // on-screen and laid out.
+      renderAll();
+    }, 750);
+  }
+
+  d3.select("#intro-skip").on("click", enterDashboard);
+  d3.select("#intro-enter").on("click", enterDashboard);
+  d3.select("#intro-playpause").on("click", () => {
+    if (finished || entered) return;
+    if (playing) stopClock(); else startClock();
+  });
+
+  // Park on the first record so the timeline reads, then auto-play after a beat.
+  applySchedule(0);
+  setTimeout(() => { if (!entered && !scrubbing && !playing && !finished) startClock(); }, 800);
+}
+
+function revealDashboard() {
+  document.body.classList.remove("intro-active");
+  d3.select(".page-shell").classed("pre-reveal", false).classed("revealed", true);
 }

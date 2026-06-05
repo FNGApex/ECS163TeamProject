@@ -1326,7 +1326,7 @@ function startIntro() {
   //Hold for a set amount of time on each record so its readable.
   const recX = records.map(r => xYear(r.year));
   const lastIndex = records.length - 1;
-  const HOLD = 600;                          // ms parked on each record
+  const HOLD = 850;                          // ms parked on each record
   const TRAVEL_TOTAL = 8000;                 // target ms to traverse the full width
   const spanPx = Math.max(1, x1 - x0);
   const PX_PER_MS = spanPx / TRAVEL_TOTAL;
@@ -1408,11 +1408,7 @@ function startIntro() {
   function activate(index) {
     if (index === currentActive) return;
     currentActive = index;
-    if (index >= lastIndex && !finished) {
-      finishSequence();
-    } else if (!finished || index < lastIndex) {
-      showBeat(records[index]);
-    }
+    showBeat(records[index]);
   }
 
   function applySchedule(ms) {
@@ -1435,7 +1431,7 @@ function startIntro() {
     prevTick = t;
     scheduleElapsed = Math.min(totalDuration, scheduleElapsed + delta);
     applySchedule(scheduleElapsed);
-    if (scheduleElapsed >= totalDuration) stopClock();
+    if (scheduleElapsed >= totalDuration) finishSequence();
   }
 
   function startClock() {
@@ -1468,6 +1464,10 @@ function startIntro() {
     return idx;
   }
 
+  function enableEnter() {
+    d3.select("#intro-enter").property("disabled", false).classed("ready", true);
+  }
+
   function seekToX(px) {
     const clampedPx = clamp(px, x0, x1);
     const year = Math.round(yearAtX(clampedPx));
@@ -1475,6 +1475,7 @@ function startIntro() {
     const idx = holderIndexForYear(year);
     scheduleElapsed = holdStartByIndex[idx];   // so Play resumes coherently
     activate(idx);
+    if (idx >= lastIndex) enableEnter();
   }
 
   const drag = d3.drag()
@@ -1496,6 +1497,7 @@ function startIntro() {
 
   // Finale: scatter all 78 modern towers across the map and invite the user in.
   function finishSequence() {
+    if (finished) return;
     finished = true;
     stopClock();
     markerLayer.selectAll(".intro-pulse").interrupt();
@@ -1527,9 +1529,10 @@ function startIntro() {
     void caption.node().offsetWidth;
     caption.classed("pop", true);
 
-    d3.select("#intro-enter").property("disabled", false).classed("ready", true);
+    enableEnter();
     d3.select("#intro-skip").text("Skip to dashboard");
     updatePlayPauseUI();
+    currentActive = -1;
   }
 
   function enterDashboard() {

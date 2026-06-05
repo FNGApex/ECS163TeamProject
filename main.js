@@ -967,13 +967,16 @@ function drawConnectionFor(item, cls, gridBox) {
   const buildingNode = document.querySelector(`#skyline-svg .building-group[data-id="${CSS.escape(item.id)}"]`);
   if (!mapNode || !buildingNode) return;
 
+  // Aim at the tower's peak: the shell path's top edge (apex) and horizontal center,
+  // not the whole group box (which includes labels above/below and the rotated name).
+  const peakNode = buildingNode.querySelector(".building-shell") || buildingNode;
   const mapBox = mapNode.getBoundingClientRect();
-  const buildBox = buildingNode.getBoundingClientRect();
+  const peakBox = peakNode.getBoundingClientRect();
 
   const x1 = mapBox.left + mapBox.width / 2 - gridBox.left;
   const y1 = mapBox.top + mapBox.height / 2 - gridBox.top;
-  const x2 = buildBox.left + buildBox.width / 2 - gridBox.left;
-  const y2 = buildBox.top + buildBox.height * 0.24 - gridBox.top;
+  const x2 = peakBox.left + peakBox.width / 2 - gridBox.left;
+  const y2 = peakBox.top - gridBox.top;
 
   connectionSvg.append("line")
     .attr("class", `connection-line ${cls}`)

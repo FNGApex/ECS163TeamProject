@@ -636,6 +636,9 @@ function renderTimeline() {
   const brush = d3.brushX()
     .extent([[margin.left, margin.top], [margin.left + innerWidth, margin.top + innerHeight]])
     .on("end", event => {
+      // Ignore programmatic moves (brush.move below) — only react to real user gestures.
+      // Without this guard, restoring the selection re-fires "end" and recurses until the tab crashes.
+      if (!event.sourceEvent) return;
       if (!event.selection) {
         if (state.yearRange) {
           state.yearRange = null;
@@ -846,10 +849,88 @@ function selectBuilding(d) {
   renderAll();
 }
 
+const COUNTRY_FLAGS = {
+  "Australia": "🇦🇺", "Chile": "🇨🇱", "China": "🇨🇳", "Kuwait": "🇰🇼",
+  "Malaysia": "🇲🇾", "Russia": "🇷🇺", "Saudi Arabia": "🇸🇦",
+  "South Africa": "🇿🇦", "South Korea": "🇰🇷", "Taiwan": "🇹🇼",
+  "Thailand": "🇹🇭", "United Arab Emirates": "🇦🇪", "United States": "🇺🇸",
+  "Vietnam": "🇻🇳"
+};
+
+const HEIGHT_LANDMARKS = [
+  { name: "the Statue of Liberty", m: 93, emoji: "🗽" },
+  { name: "Big Ben", m: 96, emoji: "🕰️" },
+  { name: "the Great Pyramid of Giza", m: 139, emoji: "🔺" },
+  { name: "the Eiffel Tower", m: 330, emoji: "🗼" },
+  { name: "the Empire State Building", m: 381, emoji: "🏙️" }
+];
+
+function rankMedal(rank) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return "🏢";
+}
+
+function funHeightFact(height) {
+  const shorter = HEIGHT_LANDMARKS.filter(l => l.m < height);
+  const ref = shorter.length ? shorter[shorter.length - 1] : HEIGHT_LANDMARKS[0];
+  return `${ref.emoji} ${(height / ref.m).toFixed(1)}× the height of ${ref.name}`;
+}
+
+function tooltipSilhouette(d) {
+  const w = 58, h = 96, baseY = 88;
+  const maxHeight = d3.max(state.allData, b => b.height) || d.height;
+  const towerH = 22 + (d.height / maxHeight) * 60;
+  const shape = buildingPath(w / 2, baseY, 30, towerH, d.profile);
+  const body = rankColor(d.rank);
+  return `
+    <svg class="tt-silhouette" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+      <defs>
+        <linearGradient id="tt-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${tint(body, 0.95)}"></stop>
+          <stop offset="55%" stop-color="${tint(body, 0.2)}"></stop>
+          <stop offset="100%" stop-color="${tint(body, -0.3)}"></stop>
+        </linearGradient>
+      </defs>
+      <ellipse cx="${w / 2}" cy="${baseY + 3}" rx="15" ry="3" fill="rgba(0,0,0,0.35)"></ellipse>
+      <path d="${shape}" fill="url(#tt-grad)" stroke="rgba(255,255,255,0.65)" stroke-width="1"></path>
+    </svg>`;
+}
+
 function showTooltip(event, d) {
+  const maxHeight = d3.max(state.allData, b => b.height) || d.height;
+  const pct = Math.max(6, (d.height / maxHeight) * 100);
+  const flag = COUNTRY_FLAGS[d.country] || "📍";
+  const loc = [d.city, d.country].filter(Boolean).join(", ");
+
+  const node = tooltip.node();
+  tooltip.classed("pop", false);
+  void node.offsetWidth;
+
   tooltip
+    .classed("pop", true)
     .style("opacity", 1)
-    .html(`<strong>${d.name}</strong><br>${[d.city, d.country].filter(Boolean).join(", ")}<br>Height: ${Math.round(d.height)}m · Rank #${d.rank}${d.year ? `<br>Year: ${d.year}` : ""}${d.floors ? `<br>Floors: ${d.floors}` : ""}`);
+    .html(`
+      <div class="tt-head" style="--rank-color:${rankColor(d.rank)}">
+        <span class="tt-rank">${rankMedal(d.rank)} #${d.rank}</span>
+        <span class="tt-flag">${flag}</span>
+      </div>
+      <div class="tt-body">
+        ${tooltipSilhouette(d)}
+        <div class="tt-info">
+          <strong class="tt-name">${d.name}</strong>
+          <span class="tt-loc">${loc}</span>
+          <div class="tt-stats">
+            <span>📏 ${formatNumber(Math.round(d.height))} m</span>
+            ${d.floors ? `<span>🏢 ${d.floors} fl</span>` : ""}
+            ${d.year ? `<span>📅 ${d.year}</span>` : ""}
+          </div>
+          <div class="tt-bar"><div class="tt-bar-fill" style="width:${pct.toFixed(0)}%"></div></div>
+        </div>
+      </div>
+      <div class="tt-fun">${funHeightFact(d.height)}</div>
+    `);
   moveTooltip(event);
 }
 

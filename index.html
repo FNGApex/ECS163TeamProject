@@ -1,115 +1,138 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Visualizing the World's Tallest Buildings — ECS 163 Team 24</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World's Tallest Buildings Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 </head>
 <body>
-    <header class="topbar">
-        <div class="title-block">
-            <h1>The World's Tallest Buildings</h1>
-            <p class="sub">Explore where the tallest buildings are located, compare their heights, and inspect building details.</p>
-        </div>
-        <div class="controls" aria-label="Dashboard filters">
-            <label>
-                Search
-                <input id="search" type="search" placeholder="Building, city, country">
-            </label>
-            <label>
-                Country
-                <select id="country-filter">
-                    <option value="All">All countries</option>
-                </select>
-            </label>
-            <label>
-                From
-                <input id="year-min" type="number" inputmode="numeric">
-            </label>
-            <label>
-                To
-                <input id="year-max" type="number" inputmode="numeric">
-            </label>
-            <button id="reset" type="button">Reset</button>
-        </div>
-    </header>
-
-    <section class="summary-row" aria-label="Dataset summary">
-        <article class="summary-card">
-            <span class="label">Visible buildings</span>
-            <strong id="summary-count">—</strong>
-        </article>
-        <article class="summary-card">
-            <span class="label">Countries</span>
-            <strong id="summary-countries">—</strong>
-        </article>
-        <article class="summary-card">
-            <span class="label">Tallest visible</span>
-            <strong id="summary-tallest">—</strong>
-        </article>
-        <article class="summary-card">
-            <span class="label">Year range</span>
-            <strong id="summary-years">—</strong>
-        </article>
+  <main class="page-shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">ECS 163 Final Project</p>
+        <h1>World's Tallest Buildings</h1>
+        <p class="subtitle">
+          Compare skyscraper height as building silhouettes, then connect each tower back to its real location on the world map.
+        </p>
+      </div>
+      <div class="hero-stat">
+        <span id="hero-count">78</span>
+        <small>buildings in dataset</small>
+      </div>
     </section>
 
-    <main id="app">
-        <section class="map-pane panel">
-            <div class="panel-head">
-                <h2>Global overview</h2>
-                <p class="sub">Hover a dot to preview · click to select · scroll to zoom the map.</p>
-            </div>
-            <svg id="map" role="img" aria-label="World map of the tallest buildings"></svg>
-        </section>
+    <section class="controls-card">
+      <div class="control-group search-group">
+        <label for="search-input">Search building / city / country</label>
+        <input id="search-input" type="search" placeholder="Example: Taipei, Dubai, China" />
+      </div>
 
-        <aside class="info-pane panel" id="info">
-            <h2 id="info-name">Select a building</h2>
-            <p class="muted" id="info-where">Hover or click any dot on the map.</p>
-            <dl id="info-stats" hidden>
-                <dt>Height</dt><dd id="stat-height">—</dd>
-                <dt>Floors</dt><dd id="stat-floors">—</dd>
-                <dt>Year built</dt><dd id="stat-year">—</dd>
-                <dt>Rank</dt><dd id="stat-rank">—</dd>
-            </dl>
-            <p class="factoid" id="factoid"></p>
-        </aside>
+      <div class="control-group">
+        <label for="country-select">Country</label>
+        <select id="country-select">
+          <option value="all">All countries</option>
+        </select>
+      </div>
 
-        <section class="compare-pane panel">
-            <div class="panel-head">
-                <h2>Skyline comparison</h2>
-                <p class="sub">Click dots on the map to add buildings. Sorted shortest → tallest.</p>
-            </div>
-            <svg id="compare" role="img" aria-label="Bar chart comparing the heights of selected buildings"></svg>
-        </section>
+      <div class="control-group">
+        <label for="sort-select">Skyline order</label>
+        <select id="sort-select">
+          <option value="height-desc">Height, tallest first</option>
+          <option value="rank-asc">Rank</option>
+          <option value="year-asc">Year built</option>
+          <option value="country-asc">Country</option>
+        </select>
+      </div>
 
-        <section class="country-pane panel">
-            <div class="panel-head">
-                <h2>Country summary</h2>
-                <p class="sub">Top countries in the current view.</p>
-            </div>
-            <svg id="country-chart" role="img" aria-label="Bar chart showing building counts by country"></svg>
-        </section>
+      <div class="control-group slider-group">
+        <label for="topn-slider">Buildings shown: <span id="topn-label">18</span></label>
+        <input id="topn-slider" type="range" min="8" max="40" value="18" />
+      </div>
 
-        <section class="timeline-pane panel">
-            <div class="panel-head">
-                <h2>Construction timeline</h2>
-                <p class="sub">Built year distribution for the current filtered view.</p>
-            </div>
-            <svg id="timeline" role="img" aria-label="Timeline showing buildings by construction year"></svg>
-        </section>
+      <button id="reset-button" type="button">Reset view</button>
+    </section>
 
-        <section class="legend-pane panel">
-            <h2>Rank color</h2>
-            <svg id="legend" role="img" aria-label="Color legend for building rank"></svg>
-            <p class="muted small">Darker red means a smaller rank number, so it is closer to #1.</p>
-        </section>
-    </main>
+    <section class="viz-grid" id="viz-grid">
+      <svg id="connection-svg" aria-hidden="true"></svg>
 
-    <div id="tooltip" class="tooltip" hidden></div>
+      <article class="panel map-panel">
+        <div class="panel-header">
+          <div>
+            <h2>World Map Overview</h2>
+            <p>Click a marker to select Building A, then click another marker for Building B. Use mouse wheel or drag to zoom and pan.</p>
+          </div>
+          <div class="legend-pill">Map + selection</div>
+        </div>
+        <svg id="map-svg"></svg>
+      </article>
 
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://unpkg.com/topojson-client@3"></script>
-    <script src="main.js"></script>
+      <article class="panel info-panel">
+        <div class="panel-header compact">
+          <div>
+            <h2>Two-Building Compare</h2>
+            <p>Choose Building A and Building B, then compare height, floors, rank, and year.</p>
+          </div>
+        </div>
+        <div class="compare-picker-card">
+          <div class="compare-picker-header">
+            <strong>Specific 2-building comparison</strong>
+            <span>Pick A and B</span>
+          </div>
+          <div class="compare-picker-grid">
+            <label>Building A
+              <select id="compare-a-select"></select>
+            </label>
+            <label>Building B
+              <select id="compare-b-select"></select>
+            </label>
+          </div>
+          <p class="compare-picker-hint">Tip: click one building for A, then click a different building for B. You can also use these dropdowns directly.</p>
+        </div>
+        <div id="detail-card" class="detail-card empty">
+          Select two buildings from the map, skyline, or dropdowns.
+        </div>
+        <div class="mini-stats">
+          <div><span id="stat-tallest">—</span><small>Tallest in current view</small></div>
+          <div><span id="stat-countries">—</span><small>Countries shown</small></div>
+          <div><span id="stat-years">—</span><small>Year range</small></div>
+        </div>
+      </article>
+
+      <article class="panel skyline-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Building Form Height Comparison</h2>
+            <p>Each tower uses the same height scale, so taller building forms are truly taller in the chart.</p>
+          </div>
+          <div class="legend-pill">Focus view</div>
+        </div>
+        <svg id="skyline-svg"></svg>
+      </article>
+
+      <article class="panel timeline-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Construction Timeline Brush</h2>
+            <p>Brush a year range to filter both the skyline and map.</p>
+          </div>
+          <div class="legend-pill">Brush interaction</div>
+        </div>
+        <svg id="timeline-svg"></svg>
+      </article>
+    </section>
+
+    <section class="story-card">
+      <h2>Story takeaway</h2>
+      <p id="story-text">
+        The dashboard shows skyscrapers as both geographic objects and physical height comparisons. The map explains where the tallest buildings are concentrated, while the skyline makes the height difference easy to compare directly.
+      </p>
+    </section>
+  </main>
+
+  <div id="tooltip" class="tooltip"></div>
+  <script src="main.js"></script>
 </body>
 </html>

@@ -394,6 +394,12 @@ function renderMap() {
     .domain(d3.extent(state.allData, d => d.height))
     .range([3.5, 11]);
 
+  // The marker layer is scaled by the zoom factor k, which would otherwise make dots
+  // balloon (and overlap) as you zoom in. Counter-scale by 1/k so they don't grow, and
+  // apply an extra k^-0.4 shrink so they actually get smaller and easier to click apart.
+  // The screen-space floor keeps the smallest dots clickable at max zoom.
+  const markerRadius = (d, k) => 2.3 * Math.max(2.6, markerScale(d.height) * Math.pow(k, -0.4)) / k;
+
   const visibleById = new Set(state.filteredData.map(d => d.id));
   const markerData = state.allData.filter(d => d.hasLocation);
 
@@ -413,7 +419,7 @@ function renderMap() {
     .on("click", (event, d) => selectBuilding(d))
     .transition()
     .duration(650)
-    .attr("r", d => markerScale(d.height));
+    .attr("r", d => markerRadius(d, state.mapTransform.k));
 
   [
     { item: state.selected, label: "A", cls: "map-label-a" },
@@ -434,7 +440,9 @@ function renderMap() {
       state.mapTransform = event.transform;
       g.attr("transform", event.transform);
       g.selectAll(".country").style("stroke-width", `${0.6 / event.transform.k}px`);
-      g.selectAll(".map-marker").style("stroke-width", `${1.6 / event.transform.k}px`);
+      g.selectAll(".map-marker")
+        .style("stroke-width", `${1.6 / event.transform.k}px`)
+        .attr("r", d => markerRadius(d, event.transform.k));
       drawConnection();
     });
 

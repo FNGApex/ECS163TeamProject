@@ -247,6 +247,7 @@ Promise.all([
 
 function initializeControls() {
   d3.select("#hero-count").text(state.allData.length);
+  setupSoundToggle();
 
   const countries = Array.from(new Set(state.allData.map(d => d.country).filter(Boolean))).sort(d3.ascending);
   d3.select("#country-select")
@@ -1040,6 +1041,8 @@ function renderStatsAndStory() {
 }
 
 function selectBuilding(d) {
+  Sound.resume();
+  Sound.select();
   if (!state.selected || (state.selected && state.compareTarget)) {
     state.selected = d;
     if (state.compareTarget && state.compareTarget.id === d.id) state.compareTarget = null;
@@ -1197,6 +1200,29 @@ function drawConnectionFor(item, cls, gridBox) {
     .attr("cx", d => d[0])
     .attr("cy", d => d[1])
     .attr("r", 5);
+}
+
+function setupSoundToggle() {
+  const btn = d3.select("#sound-toggle");
+  if (btn.empty()) return;
+
+  const sync = () => {
+    const on = Sound.enabled;
+    btn.text(on ? "🔊" : "🔇")
+      .classed("muted", !on)
+      .attr("aria-pressed", on ? "true" : "false");
+  };
+  sync();
+
+  btn.on("click", () => {
+    const on = Sound.toggle();
+    sync();
+    if (on) Sound.click(); // brief confirmation blip when turning sound on
+  });
+
+  // Unlock the AudioContext on the first interaction anywhere (autoplay policy).
+  const unlock = () => { Sound.resume(); window.removeEventListener("pointerdown", unlock); };
+  window.addEventListener("pointerdown", unlock, { once: true });
 }
 
 function shortName(name, max = 16) {
@@ -1417,6 +1443,8 @@ function startIntro() {
     if (index === currentActive) return;
     currentActive = index;
     showBeat(records[index]);
+    if (scrubbing) Sound.tick();
+    else Sound.beat((records[index].height || 0) / maxHeight);
   }
 
   function applySchedule(ms) {
@@ -1510,6 +1538,7 @@ function startIntro() {
     stopClock();
     markerLayer.selectAll(".intro-pulse").interrupt();
     setHandle(x1, 2025);
+    Sound.finale();
 
     const towers = state.allData.filter(d => d.hasLocation);
     bloomLayer.selectAll("circle.intro-bloom-dot")
@@ -1560,10 +1589,12 @@ function startIntro() {
     }, 750);
   }
 
-  d3.select("#intro-skip").on("click", enterDashboard);
-  d3.select("#intro-enter").on("click", enterDashboard);
+  d3.select("#intro-skip").on("click", () => { Sound.resume(); Sound.click(); enterDashboard(); });
+  d3.select("#intro-enter").on("click", () => { Sound.resume(); Sound.click(); enterDashboard(); });
   d3.select("#intro-playpause").on("click", () => {
     if (finished || entered) return;
+    Sound.resume();
+    Sound.click();
     if (playing) stopClock(); else startClock();
   });
 

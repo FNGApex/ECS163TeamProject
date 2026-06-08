@@ -19,7 +19,7 @@ Washington Monument,169.3,1884,1889,5.0,Monument,United States,Washington D.C.,3
 Eiffel Tower,300.0,1889,1930,41.0,Tower,France,Paris,48.8584,2.2945
 Chrysler Building,318.9,1930,1931,1.0,Skyscraper,United States,New York City,40.7516,-73.9755
 Empire State Building,381.0,1931,2025,36.0,Skyscraper,United States,New York City,40.7484,-73.9857
-Empire State Building with new antenna,448.7,1950,2025,,Skyscraper,United States,New York City,40.7484,-73.9857
+Empire State Building with new antenna,448.7,1950,2025,17.0,Skyscraper,United States,New York City,40.7484,-73.9857
 Ostankino Tower,540.0,1967,1975,8.0,Tower,Russia,Moscow,55.8197,37.6114
 CN Tower,553.0,1975,2007,32.0,Tower,Canada,Toronto,43.6426,-79.3871
 Burj Khalifa,829.8,2009,2025,,Skyscraper,United Arab Emirates,Dubai,25.1972,55.2744

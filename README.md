@@ -74,26 +74,11 @@ ECS163TeamProject/
 └── data/
     └── buildings.csv
 ```
-## Installation and Execution
 
-1.
-Clone the repository:
+Team Members
 
-```bash
-git clone https://github.com/FNGApex/ECS163TeamProject.git
-cd ECS163TeamProject
-
-2.
-then:
-
-python -m http.server 8000
-or
-python3 -m http.server 8000
-
-3.
-Open:
-http://localhost:8000
-
-## Team
-
-Hao Jyun Bai · Coen King · Ricky Cavazos Garcia · Alexander Stroev · William Tullius
+Hao Jyun Bai
+Coen King
+Ricky Cavazos Garcia
+Alexander Stroev
+William Tullius

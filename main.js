@@ -246,6 +246,7 @@ Promise.all([
 });
 
 function initializeControls() {
+  d3.select("#topn-slider").property("value", 18); //Bugfix: when refreshing page, slider would "remember" location
   d3.select("#hero-count").text(state.allData.length);
   setupSoundToggle();
 
@@ -867,9 +868,10 @@ function pairComparisonMarkup(a, b) {
     <div class="pair-bars">
       ${pairMetricBar("Height", a, b, d => d.height, "m")}
       ${Number.isFinite(a.floors) && Number.isFinite(b.floors) ? pairMetricBar("Floors", a, b, d => d.floors, "") : ""}
-      ${Number.isFinite(a.year) && Number.isFinite(b.year) ? pairMetricBar("Year built", a, b, d => d.year, "") : ""}
+      ${Number.isFinite(a.year) && Number.isFinite(b.year) ? pairMetricBar("Year built", a, b, d => d.year - 1930, "", false, d => d.year) : ""} 
       ${pairMetricBar("Rank", a, b, d => state.allData.length - d.rank + 1, "", true)}
     </div>
+    
 
     <div class="pair-diff-grid">
       <div><span>${formatNumber(Math.round(Math.abs(heightDiff)))}m</span><small>Height difference</small></div>
@@ -963,14 +965,14 @@ function pairTowerMarkup(d, label, maxHeight) {
   `;
 }
 
-function pairMetricBar(label, a, b, accessor, suffix = "", rankMode = false) {
+function pairMetricBar(label, a, b, accessor, suffix = "", rankMode = false, displayAccessor = accessor) {
   const av = accessor(a);
   const bv = accessor(b);
   const max = Math.max(Math.abs(av), Math.abs(bv)) || 1;
   const aw = Math.max(4, (Math.abs(av) / max) * 100);
   const bw = Math.max(4, (Math.abs(bv) / max) * 100);
-  const displayA = rankMode ? `#${a.rank}` : `${formatNumber(Math.round(accessor(a)))}${suffix}`;
-  const displayB = rankMode ? `#${b.rank}` : `${formatNumber(Math.round(accessor(b)))}${suffix}`;
+  const displayA = rankMode ? `#${a.rank}` : `${formatNumber(Math.round(displayAccessor(a)))}${suffix}`;
+  const displayB = rankMode ? `#${b.rank}` : `${formatNumber(Math.round(displayAccessor(b)))}${suffix}`;
 
   return `
     <div class="pair-metric">
@@ -1051,6 +1053,8 @@ function selectBuilding(d) {
   }
   syncCompareControls();
   renderAll();
+  applyFilters(); // clicking a node on the map would not add it to the skyline until 
+  // the "buildings shown" slider was interacted with or entered from the dropdown menu
 }
 
 const COUNTRY_FLAGS = {

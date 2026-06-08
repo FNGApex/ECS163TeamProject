@@ -44,6 +44,18 @@ The dataset lives in `data/buildings.csv` (78 skyscrapers, committed with the ap
 | Latitude | `lat`, `latitude`, `Latitude`                  |
 | Longitude| `lon`, `lng`, `longitude`, `Longitude`         |
 
+
+All data files needed to run the dashboard are already included in the `data/` folder. No extra download is required.
+
+Required files:
+- `data/buildings.csv` — tallest buildings dataset used for the main map, skyline, filters, and comparison views
+- `data/historical_structures.csv` — historical tallest-structure timeline used in the animated intro
+- `data/gdp.csv` — country GDP context data
+- `data/energy_production.csv` — country energy-production context data
+- `data/population.csv` — country population context data
+
+To reproduce the demo, clone the repository and run the project through a local HTTP server.
+
 ## Tech stack
 
 - [D3.js v7](https://d3js.org/) for all visualization logic
@@ -62,6 +74,25 @@ ECS163TeamProject/
 └── data/
     └── buildings.csv
 ```
+## Installation and Execution
+
+1.
+Clone the repository:
+
+```bash
+git clone https://github.com/FNGApex/ECS163TeamProject.git
+cd ECS163TeamProject
+
+2.
+then:
+
+python -m http.server 8000
+or
+python3 -m http.server 8000
+
+3.
+Open:
+http://localhost:8000
 
 ## Team
 
